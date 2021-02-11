@@ -176,33 +176,13 @@ def display_menu(selector=''):
     print("Start Task")
 
 
-    if selector == 'run': #Basic Mode
+    if selector == '': #Default Mode
         tasker = build_tasks('tasker')
         for ids, task in tasker.items():
             print("--{0}\t{1}".format(task['name'],task['time'])+
                   " | bash={0} terminal={1} param1=start_time param2={2} refresh=true color={3}"
                   .format(sys.argv[0], terminal, task['id'], set_col(task['today'])))
 
-
-    elif selector=='': #Default Mode
-        data = clkapi('get_tracked')
-        for task in data:
-            if 'task' in task:
-                if task['task']['id'] not in purge:
-                    purge.append(task['task']["id"])
-                    print("--" + task["task"]["name"] +
-                          " | bash={0} terminal={1} param1=start_time param2={2} refresh=true color=#85BF6A"
-                          .format(sys.argv[0], terminal, task['task']['id']))
-                    # print('----'+task['id'])
-
-        data = clkapi('get_today')
-        for task in data:
-            if task['id'] not in purge:
-                purge.append(task["id"])
-                print("--" + task["name"] +
-                      " | bash={0} terminal={1} param1=start_time param2={2} param3={2} refresh=true"
-                      .format(sys.argv[0], terminal, task['id']))
-                # print("----" + task['id'])
 
     ### Sub-Title | Projects ###
     else: #Project Mode
@@ -361,4 +341,4 @@ if len(sys.argv) > 1: # Routine Selector
 
 else:
     display_title()
-    display_menu('run')
+    display_menu()
