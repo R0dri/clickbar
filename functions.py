@@ -22,6 +22,10 @@ from urllib.parse import quote
 
 # --- GENERAL CONFIGURATION ---
 # -----------------------------
+terminal = 'false' # if Testing endpoints
+debug = False # if Testing main code
+data = 'Debug Mode'
+no_error = True
 
 ## Get Configurations
 config = configparser.ConfigParser()
@@ -83,16 +87,17 @@ def display_title():
         print("No Task Running")
         flag=False
     else:
-        print(data['task']['name'] + thuman(data['duration']) + set_col('active'))
+        print(data['task']['name'] + thuman(data['duration']) )
         flag=True
 
     print ("---")
 
-def display_menu(selector=''):
     ### Sub-Title | Stop Current ###
     if flag: print("Stop Task | bash={0} terminal={1} param1=stop_time refresh=true".format(sys.argv[0], terminal))
-    if flag: print("Complete Task | bash={0} terminal={1} param1=task_done refresh=true".format(sys.argv[0], terminal))
+    if flag: print("Complete Task | bash={0} terminal={1} param1=task_done param2={2} refresh=true".format(sys.argv[0], terminal, data['task']['id']))
 
+
+def display_menu(selector=''):
     ### Sub-Title | Task Manager ###
     print("Start Task")
 
@@ -159,13 +164,13 @@ api = {
 ### ------------------------------------------------------------------------------------------------------------
 ###  Endpoint Name | Method |            Path                 |           Params                       |  Body
 ### ------------------------------------------------------------------------------------------------------------
-    'get_tracked': [ 'GET'  , team+"time_entries/"            , 'start_date='+today('millis')          ,{}],
-    'get_current': [ 'GET'  , team+"time_entries/current/"    , ''                                     ,{}],
-    'get_today':   [ 'GET'  , planner+ 'task/'                , 'archived=false&due_date_gt='+today()  ,{}],
-    'get_task':    [ 'GET'  , 'task/'                         , ''                                     ,{}],
-    'get_list':    [ 'GET'  , 'list/'                         , ''                                     ,{}],
-    'stop_time':   [ 'POST' , team+"time_entries/stop/"       , ''                                     ,{}],
-    'start_time':  [ 'POST' , team+"time_entries/start/"      , ''                                     ,{}],
+    'get_tracked': [ 'GET'  , team+"time_entries/"            , 'start_date='+today('millis')          ,{'':''}],
+    'get_current': [ 'GET'  , team+"time_entries/current/"    , ''                                     ,{'':''}],
+    'get_today':   [ 'GET'  , planner+ 'task/'                , 'archived=false&due_date_gt='+today()  ,{'':''}],
+    'get_task':    [ 'GET'  , 'task/'                         , ''                                     ,{'':''}],
+    'get_list':    [ 'GET'  , 'list/'                         , ''                                     ,{'':''}],
+    'stop_time':   [ 'POST' , team+"time_entries/stop/"       , ''                                     ,{'':''}],
+    'start_time':  [ 'POST' , team+"time_entries/start/"      , ''                                     ,{'':''}],
     'task_done':   [ 'PUT'  , "task/"                         , ''                                     ,{'status':'completed'}],
 }
 
@@ -207,14 +212,10 @@ def watchlist ():
     for list in lists:
         # print(list)
         the_list = 'list/' + list + '/'
-        api['get_today'] = ['GET', the_list + 'task/', 'archived=false&due_date_gt='+today()]
         watcher.append(clkapi('get_today'))
         # print('-----------------------------------')
     # print(json.dumps(tasker,indent=3,sort_keys=True))
     return watcher
-
-
-
 
 
 # ------ DISPLAY -------
@@ -240,62 +241,6 @@ def set_col(status):
     if status == "idle":    return " | color = #000000"
     if status == "stopped": return " | color = red    "
     if status == "break":   return " | color = #FF7F00"
-
-def display_title():
-    ### Title | Current task ###
-    global flag
-    data = clkapi('get_current')
-    if data is None:
-        print("No Task Running")
-        flag=False
-    else:
-        print(data['task']['name'] + thuman(data['duration']) + set_col('active'))
-        flag=True
-
-    print ("---")
-
-def display_menu(selector=''):
-    ### Sub-Title | Stop Current ###
-    if flag: print("Stop Task | bash={0} terminal={1} param1=stop_time refresh=true".format(sys.argv[0], terminal))
-    if flag: print("End Task")
-
-    ### Sub-Title | Task Manager ###
-    print("Start Task")
-
-
-    if selector == '': #Default Mode
-        tasker = build_tasks('tasker')
-        for ids, task in tasker.items():
-            print("--{0}\t{1}".format(task['name'],task['time'])+
-                  " | bash={0} terminal={1} param1=start_time param2={2} refresh=true color={3}"
-                  .format(sys.argv[0], terminal, task['id'], set_col(task['today'])))
-
-
-    ### Sub-Title | Projects ###
-    else: #Project Mode
-        projects = build_tasks();
-        print(projects)
-        print('\n\n')
-
-        # Display projects
-        for ids, project in projects.items():
-            # print(ids+'\t'+json.dumps(project,indent=3))
-            print("--" + project["name"] + " | color={0}".format(project['color']))
-
-            # Display tasks
-            for task in project:
-                print("----" + task["name"] +
-                      " | bash={0} terminal={1} param1=start_time param2={2} refresh=true color={3}"
-                      .format(sys.argv[0], terminal,
-                              task['id'],
-                              task['color']))
-        exit()
-
-    ### Sub-Title | Clock In/Out ###
-    print("*Clock In")
-
-    ### Sub-Title | Hard Refresh ###
-    print("refresh | refresh=true")
 
 # Build Menu Functions
 # --------------------

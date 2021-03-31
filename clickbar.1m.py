@@ -88,7 +88,12 @@ if len(sys.argv) > 1: # Routine Selector
     # Start Selected Timer
     if len(sys.argv) == 2: data = clkapi(sys.argv[1])
     # Start Selected Task
-    if len(sys.argv) >= 3: data = clkapi(sys.argv[1],tid=sys.argv[2])
+    if len(sys.argv) >= 3:
+        if sys.argv[1] == 'task_done':
+            data = clkapi('stop_time',tid=sys.argv[2])
+            data = clkapi(sys.argv[1],sys.argv[2])
+        else:
+            data = clkapi(sys.argv[1],tid=sys.argv[2])
 
 
 
