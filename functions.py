@@ -212,6 +212,7 @@ def watchlist ():
     for list in lists:
         # print(list)
         the_list = 'list/' + list + '/'
+        api['get_today'] = ['GET', the_list + 'task/', 'archived=false&due_date_gt='+today(),{'':''}]
         watcher.append(clkapi('get_today'))
         # print('-----------------------------------')
     # print(json.dumps(tasker,indent=3,sort_keys=True))
