@@ -83,6 +83,17 @@ if len(sys.argv) > 1: # Routine Selector
         print("Body: " + response.request.body)
         exit()
 
+    if sys.argv[1] in ['-r', '--reset']:
+        upd=thuman(now('int')-int(config['clickup']['last_update']),'str_m',typ='s')
+        notify('ClickBar','Updating...','Last update: {0} minutes ago.'.format(upd))
+        display_title()
+        print("updated after {0}".format(thuman(now('int')-int(config['clickup']['last_update']),'str_m',typ='s')))
+        print("---")
+        print(display_menu('static'))
+        display_menu()
+        last_update('reset')
+        notify('Clickbar','Updating is DONE!')
+        exit()
 
     # --- Pre-Defined Routine ---
     # ---------------------------
@@ -113,7 +124,7 @@ if len(sys.argv) > 1: # Routine Selector
 else:
     if last_update():
         display_title()
-        print("updated after {0}".format(thuman(now('int')-int(config['clickup']['last_update']),'str_m',typ='s')))
+        print("Updating after {0}".format(thuman(now('int')-int(config['clickup']['last_update']),'str_m',typ='s')))
         print("---")
         print(display_menu('static'))
         display_menu()

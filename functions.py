@@ -122,68 +122,70 @@ def display_title():
     if flag: print("Complete Task | bash={0} terminal={1} param1=task_done param2={2} refresh=true shortcut=CMD+OPT+D".format(sys.argv[0], terminal, data['task']['id']))  # 
 
 
-def display_menu(selector=''):
-    menu = ""
-    t_today = np.array([0,0,0])
-
-    ### Sub-Title | Task Manager ###
-    menu+="Start Task | shortcut=CMD+OPT+O\n"
+def display_menu(selector='default'):
 
     if selector == 'default': #Default Mode
-        tasker = build_tasks('tasker')
-        for ids, task in tasker.items():
-            menu+="--{0}\t{1}".format(task['name'],task['time'])
-            menu+=" | bash={0} terminal={1} param1=start_time param2={2} refresh=true color={3}".format(sys.argv[0], terminal, task['id'], set_col(task['today']))
-            menu+="\n"
+        menu = ""
+        t_today = np.array([0,0,0])
+        est_today = np.array([0,0,0])
 
+        ### Sub-Title | Task Manager ###
+        # menu+="Today | shortcut=CMD+OPT+T\n"
+        # tasker = build_tasks('tasker')
+        # for ids, task in tasker.items():
+        #     menu+="--{0}\t{1}m".format(task['name'],task['time'])
+        #     menu+=" | bash={0} terminal={1} param1=start_time param2={2} refresh=true color={3}".format(sys.argv[0], terminal, task['id'], set_col(task['today']))
+        #     menu+="\n"
 
-    elif selector == 'static':
-        menu = config['clickup']['menu']
-        return menu
-
-    ### Sub-Title | Projects ###
-    else: #Project Mode
+        ### Sub-Title | Projects ###
+        menu+="Projects | shortcut=CMD+OPT+O\n"
         projects = build_tasks('project');
-
-        # Display projects
         for ids, project in projects.items():
             menu+="--" + project["name"] + "\n"
+            menu+="----Open List in ClickUp | href=https://app.clickup.com/8449883/v/li/{0} color=Aquamarine\n".format(task['list'])
 
             # Display tasks
             for task in project['tasks']:
                 menu+="----" + task["name"]
-                menu+=" {4}:{5}m | bash={0} terminal={1} param1=start_time param2={2} refresh=true color={3}".format(
+                menu+="\t{4}m | bash={0} terminal={1} param1=start_time param2={2} refresh=true color={3}".format(
                     sys.argv[0],
                     terminal,
                     task['id'],
                     task['color'],
-                    task['estimate'][0] if len(task['estimate'])>1 else task['estimate'],
-                    task['estimate'][1] if len(task['estimate'])>1 else task['estimate'])
+                    task['estimate'][2] if len(task['estimate'])>1 else task['estimate'])
                 menu+="\n"
-                t_today+=np.array(task['estimate']) if len(task['estimate'])>1 else np.array([0,0,0])
+                est_today+=np.array(task['estimate']) if len(task['estimate'])>1 else np.array([0,0,0])
+                t_today+=np.array(task['spent']) if len(task['spent'])>1 else np.array([0,0,0])
 
 
-    ### Sub-Title | Clock In/Out ###
-    # menu+="*Clock In"
-    # menu+="\n"
+        ### Sub-Title | Clock In/Out ###
+        # menu+="*Clock In"
+        # menu+="\n"
 
 
-    ### Sub-Title | Time Planned Indicator ###
-    menu+= "Today {0}:{1}m/{2}:{3}m\n".format(
-        t_today[0],
-        t_today[1],
-        "?","?"
-    )
+        ### Sub-Title | Time Planned Indicator ###
+        menu = "Today \t{0}:{1}/{2}:{3}\n".format(
+            est_today[0],
+            est_today[1],
+            t_today[0],
+            t_today[1]
+        )+menu
 
-    ### Sub-Title | Hard Refresh ###
-    menu+="refresh | refresh=true\n"
+        ### Sub-Title | Hard Refresh ###
+        menu+="Debug | alternate=True\n"
+        menu+="--Update Menu | bash={0} terminal={1} param1={2} refresh=true\n".format(sys.argv[0], terminal, "-r")
+        menu+="--Refresh | refresh=true\n"
 
-    config.set('clickup','menu', menu)
-    # config.set('clickup','t_today', t_today)
-    with open(cnf_path, 'w') as fp:
-        config.write(fp)
+        config.set('clickup','menu', menu)
+        # config.set('clickup','t_today', t_today)
+        with open(cnf_path, 'w') as fp:
+            config.write(fp)
 
-    return menu
+        return menu
+
+    elif selector == 'static':
+        menu = config['clickup']['menu']
+        return menu
 
 
 # ----- CLICKUP API ------
@@ -325,6 +327,9 @@ def set_col(status):
 # --------------------
 def build_tasks(opt=''):
     if opt == 'project':
+        if projects != {}:
+            return projects
+
         # data = clkapi('get_today')
         watcher = watchlist()
         for data in watcher:
@@ -353,6 +358,10 @@ def build_tasks(opt=''):
         return projects
 
     if opt == 'tasker':
+        projs=build_tasks('project')
+        for proj in projs:
+            tasker.append(proj['tasks'])
+
         data_tracked = clkapi('get_tracked')
         for task in data_tracked:
             if 'task' in task:
