@@ -13,11 +13,12 @@
 
 import sys
 import json
+import time
 import os
 import configparser
+import numpy as np
 from requests import request
 from datetime import datetime
-import time
 from urllib.parse import quote
 
 # --- GENERAL CONFIGURATION ---
@@ -29,7 +30,8 @@ no_error = True
 
 ## Get Configurations
 config = configparser.ConfigParser()
-config.read(os.path.expanduser("~")+"/.bitbarrc")
+cnf_path = os.path.expanduser("~")+"/.bitbarrc"
+config.read(cnf_path)
 api_key = config["clickup"]["api_key"]
 team = 'team/' + config["clickup"]["team"] + '/'
 
@@ -44,8 +46,12 @@ flag = False
 
 # Time Manipulation Functions
 # ---------------------------
-def thuman(seconds,form='str'):
-    minu =  int(abs(seconds)*(0.000016666667))
+def thuman(seconds,form='str',typ='ms'):
+    if typ == 's':
+        minu =  int(abs(seconds)*(0.016666667))
+    elif typ == 'ms':
+        minu =  int(abs(seconds)*(0.000016666667))
+
     h = int(minu/60)
     m = minu-h*60
 
@@ -60,10 +66,13 @@ def thuman(seconds,form='str'):
     if form == 'int':
         return h, m, minu
 
-def now():
-    now = datetime.utcnow().date()
+def now(form=''):
+    now = datetime.utcnow().timestamp()
     if form == 'millis': now*= 1000
-    return str(int(now))
+    if form == 'int':
+        return int(now)
+    else:
+        return str(int(now))
 
 def today(form=''):
     today = datetime.utcnow().date()
@@ -73,6 +82,22 @@ def today(form=''):
     else:
         start = round(start)
     return str(int(start))
+
+def last_update(sel=''):
+    if sel == '':
+        updated = int(config['clickup']['last_update'])
+        if now('int')-updated > 600:
+            return True
+        else:
+            return False
+    elif sel == 'reset':
+        config.set('clickup','last_update', json.dumps(now('int')))
+        with open(cnf_path, 'w') as fp:
+            config.write(fp)
+        return False
+    else:
+        return True
+
 
 
 
@@ -93,49 +118,72 @@ def display_title():
     print ("---")
 
     ### Sub-Title | Stop Current ###
-    if flag: print("Stop Task | bash={0} terminal={1} param1=stop_time refresh=true".format(sys.argv[0], terminal))
-    if flag: print("Complete Task | bash={0} terminal={1} param1=task_done param2={2} refresh=true".format(sys.argv[0], terminal, data['task']['id']))
+    if flag: print("Stop Task (s) | bash={0} terminal={1} param1=stop_time refresh=true shortcut=CMD+OPT+T".format(sys.argv[0], terminal))
+    if flag: print("Complete Task | bash={0} terminal={1} param1=task_done param2={2} refresh=true shortcut=CMD+OPT+D".format(sys.argv[0], terminal, data['task']['id']))  # 
 
 
 def display_menu(selector=''):
+    menu = ""
+    t_today = np.array([0,0,0])
+
     ### Sub-Title | Task Manager ###
-    print("Start Task")
+    menu+="Start Task | shortcut=CMD+OPT+O\n"
 
-
-    if selector != '': #Default Mode
+    if selector == 'default': #Default Mode
         tasker = build_tasks('tasker')
         for ids, task in tasker.items():
-            print("--{0}\t{1}".format(task['name'],task['time'])+
-                  " | bash={0} terminal={1} param1=start_time param2={2} refresh=true color={3}"
-                  .format(sys.argv[0], terminal, task['id'], set_col(task['today'])))
+            menu+="--{0}\t{1}".format(task['name'],task['time'])
+            menu+=" | bash={0} terminal={1} param1=start_time param2={2} refresh=true color={3}".format(sys.argv[0], terminal, task['id'], set_col(task['today']))
+            menu+="\n"
 
+
+    elif selector == 'static':
+        menu = config['clickup']['menu']
+        return menu
 
     ### Sub-Title | Projects ###
     else: #Project Mode
         projects = build_tasks('project');
-        # if debug: print(json.dumps(projects,indent=3,sort_keys=True))
-        # print('\n\n')
 
         # Display projects
         for ids, project in projects.items():
-            # print(ids+'\t'+json.dumps(project,indent=3))
-            # print("--" + project["name"] + " | color={0}".format(project['color']))
-            print("--" + project["name"])
+            menu+="--" + project["name"] + "\n"
 
             # Display tasks
             for task in project['tasks']:
-                print("----" + task["name"] +
-                      " | bash={0} terminal={1} param1=start_time param2={2} refresh=true color={3}"
-                      .format(sys.argv[0], terminal,
-                              task['id'],
-                              task['color']))
-        # exit()
+                menu+="----" + task["name"]
+                menu+=" {4}:{5}m | bash={0} terminal={1} param1=start_time param2={2} refresh=true color={3}".format(
+                    sys.argv[0],
+                    terminal,
+                    task['id'],
+                    task['color'],
+                    task['estimate'][0] if len(task['estimate'])>1 else task['estimate'],
+                    task['estimate'][1] if len(task['estimate'])>1 else task['estimate'])
+                menu+="\n"
+                t_today+=np.array(task['estimate']) if len(task['estimate'])>1 else np.array([0,0,0])
+
 
     ### Sub-Title | Clock In/Out ###
-    print("*Clock In")
+    # menu+="*Clock In"
+    # menu+="\n"
+
+
+    ### Sub-Title | Time Planned Indicator ###
+    menu+= "Today {0}:{1}m/{2}:{3}m\n".format(
+        t_today[0],
+        t_today[1],
+        "?","?"
+    )
 
     ### Sub-Title | Hard Refresh ###
-    print("refresh | refresh=true")
+    menu+="refresh | refresh=true\n"
+
+    config.set('clickup','menu', menu)
+    # config.set('clickup','t_today', t_today)
+    with open(cnf_path, 'w') as fp:
+        config.write(fp)
+
+    return menu
 
 
 # ----- CLICKUP API ------
@@ -205,15 +253,45 @@ def clkapi(endpoint, ext='' ,tid='',debug=False):
     else:
         return data
 
+def watchfolder ():
+    watcher = []
+    lister =[]
+    folders = config['clickup']['watch_folders'].splitlines()
+    folders.pop(0)
+    for folder in folders:
+        print(folder)
+        the_folder = 'folder/' + folder + '/'
+        api['get_lists'] = ['GET', the_folder + 'list/', 'archived=false',{'':''}]
+        watcher+=clkapi('get_lists')['lists']
+        # print(clkapi('get_lists')['lists'])
+        # watcher = clkapi('get_lists')['lists']
+        # print(json.dumps(watcher,indent=3,sort_keys=True))
+        # print('-----------------------------------')
+
+    # print(json.dumps(watcher,indent=3,sort_keys=True))
+    for list in watcher:
+            # for list in lists:
+        lister.append(list['id'])
+        # config.set('clickup','watch_lists', str(list['name']))
+
+    # config['clickup']['watch_lists'] = str(lister)
+
+    config.set('clickup','watch_lists', json.dumps(lister))
+
+    with open(cnf_path, 'w') as fp:
+        config.write(fp)
+    return watcher
+
 def watchlist ():
     watcher = []
-    lists = config['clickup']['watch'].splitlines()
-    lists.pop(0)
+    lists = json.loads(config['clickup']['watch_lists'])
     for list in lists:
         # print(list)
         the_list = 'list/' + list + '/'
         api['get_today'] = ['GET', the_list + 'task/', 'archived=false&due_date_gt='+today(),{'':''}]
         watcher.append(clkapi('get_today'))
+
+
         # print('-----------------------------------')
     # print(json.dumps(tasker,indent=3,sort_keys=True))
     return watcher
